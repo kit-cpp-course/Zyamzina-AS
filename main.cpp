@@ -7,39 +7,40 @@
 using namespace catalogize;
 
 FileTypesRepo ftr;
-wstring copyRoot = L"C:\\Users\\Анастасия\\Documents\\3 семестр\\Collected\\";
+wstring copyRoot = L"C:\\Users\\РђРЅР°СЃС‚Р°СЃРёСЏ\\Documents\\3 СЃРµРјРµСЃС‚СЂ\\Collected\\";
 
 
 void processFile(std::wstring path, std::wstring name) {
-	// Если папка, которую вернул walk, является подпапкой copyRoot, ничего не делаем во избежание поедания диска
+	// Р•СЃР»Рё РїР°РїРєР°, РєРѕС‚РѕСЂСѓСЋ РІРµСЂРЅСѓР» walk, СЏРІР»СЏРµС‚СЃСЏ РїРѕРґРїР°РїРєРѕР№ copyRoot, РЅРёС‡РµРіРѕ РЅРµ РґРµР»Р°РµРј РІРѕ РёР·Р±РµР¶Р°РЅРёРµ РїРѕРµРґР°РЅРёСЏ РґРёСЃРєР°
 	if (!path.find(copyRoot)) { return; }
 	
 	const wchar_t * ext = FileSystem::getExtension(&name);
 	if (ext == nullptr) {
 		return;
 	}
-	// Точка не нужна, можем смело пропускать
+	// РўРѕС‡РєР° РЅРµ РЅСѓР¶РЅР°, РјРѕР¶РµРј СЃРјРµР»Рѕ РїСЂРѕРїСѓСЃРєР°С‚СЊ
 	wstring extension(++ext);
-	// Получаем категорию
+	// РџРѕР»СѓС‡Р°РµРј РєР°С‚РµРіРѕСЂРёСЋ
 	wstring* category = ftr.getCategory(&extension);
-	// Если категория пуста, пропускаем файл
+	// Р•СЃР»Рё РєР°С‚РµРіРѕСЂРёСЏ РїСѓСЃС‚Р°, РїСЂРѕРїСѓСЃРєР°РµРј С„Р°Р№Р»
 	if (category->empty()) return;
 
 	wstring categoryFolder = copyRoot + (copyRoot.back() != L'\\' ? L"\\" : L"") + *category + L'\\' + extension;
 
-	// Проверяем, существует ли папка для этой категории...
+	// РџСЂРѕРІРµСЂСЏРµРј, СЃСѓС‰РµСЃС‚РІСѓРµС‚ Р»Рё РїР°РїРєР° РґР»СЏ СЌС‚РѕР№ РєР°С‚РµРіРѕСЂРёРё...
 	bool exists = FileSystem::exists(&categoryFolder);
 	bool folder = FileSystem::isFolder(&categoryFolder);
 	if (exists && !folder) { 
-		wcout << L" В пути указан файл ";
+		wcout << L" Р’ РїСѓС‚Рё СѓРєР°Р·Р°РЅ С„Р°Р№Р» ";
 		return;
 	}
-	// ...и если не существует, создаем
+	// ...Рё РµСЃР»Рё РЅРµ СЃСѓС‰РµСЃС‚РІСѓРµС‚, СЃРѕР·РґР°РµРј
 	else if (!exists) {
 		FileSystem::createFolder(&categoryFolder);
 	}
 
-	// Копируем файл!
+	
+	// РљРѕРїРёСЂСѓРµРј С„Р°Р№Р»!
 	FileSystem::copyFile(&path, &categoryFolder, &name);
 	wcout << name << ": " << *category << endl;
 }
@@ -51,16 +52,16 @@ int main()
 	SetConsoleCP(1251);
 
 	wstring fromRoot;
-	//обработка исключений createFolder
+	//РѕР±СЂР°Р±РѕС‚РєР° РёСЃРєР»СЋС‡РµРЅРёР№ createFolder
 	do {
-		wcout << L" Введите директорию, куда каталогизировать файлы ";
+		wcout << L" Р’РІРµРґРёС‚Рµ РґРёСЂРµРєС‚РѕСЂРёСЋ, РєСѓРґР° РєР°С‚Р°Р»РѕРіРёР·РёСЂРѕРІР°С‚СЊ С„Р°Р№Р»С‹ ";
 		getline(wcin, copyRoot);
 	} while (!FileSystem::createFolder(&copyRoot));
 
 	do {
-		wcout << L" Введите директорию, которую нужно каталогизировать ";
+		wcout << L" Р’РІРµРґРёС‚Рµ РґРёСЂРµРєС‚РѕСЂРёСЋ, РєРѕС‚РѕСЂСѓСЋ РЅСѓР¶РЅРѕ РєР°С‚Р°Р»РѕРіРёР·РёСЂРѕРІР°С‚СЊ ";
 		getline(wcin, fromRoot);
 	} while (!FileSystem::exists(&fromRoot) || !FileSystem::isFolder(&fromRoot));
 	FileSystem::walk(fromRoot, &processFile);
-	wcout << L" Каталогизация завершилась " << endl;
+	wcout << L" РљР°С‚Р°Р»РѕРіРёР·Р°С†РёСЏ Р·Р°РІРµСЂС€РёР»Р°СЃСЊ " << endl;
 }
