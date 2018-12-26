@@ -9,3 +9,5 @@ namespace catalogize {
 	const int TYPE_LENGTHS[] = { arrsize(MUSIC_FILES), arrsize(IMAGE_FILES), arrsize(VIDEO_FILES), arrsize(DOC_FILES) };
 	const wchar_t** TYPES[] = { MUSIC_FILES, IMAGE_FILES, VIDEO_FILES, DOC_FILES };
 }
+
+
