@@ -17,7 +17,7 @@ namespace catalogize {
 		wstring* m_to;
 		wstring* m_repo_path;
 	public:
-		Configuration() {};
+		
 		static Configuration& instance() {
 			static Configuration m_instance;
 			return m_instance;
