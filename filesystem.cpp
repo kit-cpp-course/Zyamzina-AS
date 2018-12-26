@@ -1,6 +1,8 @@
-﻿#include "FileSystem.h"
+#include "FileSystem.h"
 #include <iostream>
+#ifndef NO_ERROR
 #define NO_ERROR -1
+#endif
 
 namespace catalogize {
 	/* подготовка пути для работы программы */
@@ -16,9 +18,9 @@ namespace catalogize {
 	}
 
 	/* проврека на существование файла или папки */
-	bool FileSystem::exists(wstring* const path)
+	bool FileSystem::exists(wstring& path)
 	{
-		DWORD attrs = GetFileAttributesW(prepare(*path));
+		DWORD attrs = GetFileAttributesW(prepare(path));
 		DWORD error = GetLastError();
 		if (attrs == INVALID_FILE_ATTRIBUTES && (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND)) {
 			return false;
@@ -27,9 +29,9 @@ namespace catalogize {
 	}
 
 	/* папка или файл */
-	bool FileSystem::isFolder(wstring* const path)
+	bool FileSystem::isFolder(wstring& path)
 	{
-		DWORD attrs = GetFileAttributesW(prepare(*path));
+		DWORD attrs = GetFileAttributesW(prepare(path));
 		DWORD error = GetLastError();
 		// ERROR_INVALID_NAME выбрасывается в случае, если мы пытаемся обратиться к файлу как к каталогу
 		if (attrs == INVALID_FILE_ATTRIBUTES && (error == ERROR_FILE_NOT_FOUND || error == ERROR_INVALID_NAME)) return false;
@@ -37,10 +39,11 @@ namespace catalogize {
 	}
 
 	/* создание папки */
-	bool FileSystem::createFolder(wstring* const path)
+	bool FileSystem::createFolder(wstring& path)
 	{
-		const wchar_t* cpath = prepare(*path);
+		const wchar_t* cpath = prepare(path);
 		DWORD result = CreateDirectoryW(cpath, NULL);
+		delete[] cpath;
 		if (result == 0) {
 			DWORD error = GetLastError();
 			if (error == ERROR_ALREADY_EXISTS) {
@@ -59,19 +62,18 @@ namespace catalogize {
 				unsigned int steps = 0;
 				size_t index = -1;
 				wstring newPath;
-				do {
-					// Разделим путь на шаги, разбив строку на слэши
-					index = path->find_first_of('\\', index + 1);
+				// Разделим путь на шаги, разбив строку на слэши
+				while ((index = path.find_first_of('\\', index + 1)) != wstring::npos) {
 					// Шаг = подстрока от 0 до следующего слэша
-					newPath = path->substr(0, index + 1);
-					bool ex = exists(&newPath);
-					if (ex && !isFolder(&newPath)) {
+					newPath = path.substr(0, index + 1);
+					bool ex = exists(newPath);
+					if (ex && !isFolder(newPath)) {
 						wcout << L"В пути найден файл";
 						return false;
 					}
 					else if (!ex && steps) {
 						// Не существует и это не диск => создать.
-						createFolder(&newPath);
+						createFolder(newPath);
 					}
 					else if (!ex && !steps) {
 						// TO DO бросить исключение (не существует и это диск)
@@ -79,14 +81,14 @@ namespace catalogize {
 						return false;
 					}
 					steps++;
-				} while (index != wstring::npos);
+				};
 			}
 		}
 		return true;
 	}
 
 	/* копирование файла в новую категорию */
-	bool FileSystem::copyFile(wstring* const from, wstring* const to, wstring* const name)
+	bool FileSystem::copyFile(wstring& from, wstring& to, wstring& name)
 	{
 		// Если путь ведет не к папке -- что вообще нам нужно делать?
 		if (!isFolder(to)) return false;
@@ -95,11 +97,11 @@ namespace catalogize {
 
 		// Заранее подготовим from -- оно нам пригодится
 		// Добавим бэкслэш к исходному пути, если его нет, туда же добавляем имя файла
-		cfrom = prepare(*from + ((from->back() != L'\\') ? L"\\" : L"") + *name);
+		cfrom = prepare(from + ((from.back() != L'\\') ? L"\\" : L"") + name);
 		// Добавляем бэкслэш если его нет в итоговом пути
-		const wchar_t* bs = (name != 0 && to->back() != L'\\') ? L"\\" : L"";
+		const wchar_t* bs = (to.back() != L'\\') ? L"\\" : L"";
 
-		DWORD result = CopyFileW(cfrom, prepare(*to + bs + *name), true);
+		DWORD result = CopyFileW(cfrom, prepare(to + bs + name), true);
 		if (result == 0) {
 			DWORD error = GetLastError();
 			if (error == ERROR_FILE_EXISTS) {
@@ -112,21 +114,22 @@ namespace catalogize {
 				wstring extension;
 				if (ext == nullptr) {
 					// Добавляем постфикс(цифру) в конце имени копируемого файла
-					filename = *name;
+					filename = name;
 					extension = L"";
 				}
 				else {
 					// Нужно вытащить имя файла до расширения
-					filename = name->substr(0, ext - name->c_str());
+					filename = name.substr(0, ext - name.c_str());
 					extension = ext;
 				}
+
 				// копирование файла в нужную директорю
 				int index = 1;
 				error = NO_ERROR;
 				do {
 					// Пытаемся скопировать файл
 					result = CopyFileW(cfrom,
-						prepare(*to + bs + filename + L" (" + to_wstring(index++) + L")" + extension),
+						prepare(to + bs + filename + L" (" + to_wstring(index++) + L")" + extension),
 						true);
 					// Если снова фейл, просто ставим error
 					if (result == 0) {
@@ -139,13 +142,15 @@ namespace catalogize {
 				if (error == NO_ERROR) return true;
 			}
 			else {
+				delete[] cfrom;
 				return false;
 			}
 		}
+		delete[] cfrom;
 		return true;
 	}
 	/* рекурсивный поиск файлов и подпапок */
-	void FileSystem::walk(wstring path, void(*func)(wstring, wstring))
+	void FileSystem::walk(wstring& path, WalkFuncPtr func)
 	{
 		WIN32_FIND_DATAW fd;
 		const wchar_t* suffix = L"*.*";
@@ -167,12 +172,12 @@ namespace catalogize {
 		FindNextFileW(h_fd, &fd);
 		while (FindNextFileW(h_fd, &fd)) {
 			wstring newPath = path + fd.cFileName;
-			if (isFolder(&newPath)) {
+			if (isFolder(newPath)) {
 				// Рекурсивно обойдем, пожалуй
 				walk(newPath, func);
 			}
 			else {
-				(*func)(path, wstring(fd.cFileName));
+				func(path, wstring(fd.cFileName));
 			}
 		}
 
@@ -183,14 +188,14 @@ namespace catalogize {
 	}
 
 	/* получение расширения(типа) файла */
-	const wchar_t * FileSystem::getExtension(wstring* name)
+	const wchar_t * FileSystem::getExtension(wstring &name)
 	{
-		size_t index = name->find_last_of('.');
+		size_t index = name.find_last_of('.');
 		if (index == wstring::npos) {
 			return nullptr;
 		}
 		else {
-			return name->c_str() + index; /* возвращение указателя на "." */
+			return name.c_str() + index; /* возвращение указателя на "." */
 		}
 	}
 }
